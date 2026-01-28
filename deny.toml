@@ -104,6 +104,8 @@ allow = [
     # See https://opensource.org/license/unicode-inc-license-agreement-data-files-and-software
     "Unicode-DFS-2016",
     "Unicode-3.0",
+    "Zlib",
+    "MIT-0",
     #"Apache-2.0 WITH LLVM-exception",
     # Considered Copyleft, but permitted in this project
     "MPL-2.0",
