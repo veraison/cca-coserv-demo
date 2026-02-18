@@ -12,5 +12,23 @@ Then simply build as follows:
 cargo build
 ```
 
-## How to Run
-(TODO - pending design of CLI)
+
+## Installation and Usage
+
+Install by running this command from the repo root:
+
+```bash
+cargo install --path . --locked
+```
+
+Example usage:
+
+```bash
+ccacoserv-cli --evidence test/ccatoken.cbor --coserv-server https://veraison.test.linaro.org:11443 --pretty
+```
+
+To see a list of available commands, run:
+
+```bash
+ccacoserv-cli --help
+```

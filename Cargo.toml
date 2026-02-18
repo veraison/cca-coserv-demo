@@ -9,6 +9,10 @@ license = "Apache-2.0"
 keywords = ["attestation", "verification", "veraison"]
 categories = ["command-line-utilities", "cryptography", "security"]
 
+[[bin]]
+name = "ccacoserv-cli"
+path = "src/main.rs"
+
 [dependencies]
 coserv-rs = { git = "https://github.com/veraison/coserv-rs" }
 corim-rs = { git = "https://github.com/veraison/corim-rs" }
@@ -19,3 +23,9 @@ serde_json = { version = "1.0.140", features = ["raw_value"] }
 ccatoken = { git = "https://github.com/veraison/rust-ccatoken" }
 tokio = "1.47.1"
 thiserror = "2.0.18"
+base64 = "0.22.1"
+ear = "0.4.0"
+log = "0.4.29"
+clap = "4.5.57"
+clap-verbosity-flag = "3.0.4"
+env_logger = "0.11.8"
