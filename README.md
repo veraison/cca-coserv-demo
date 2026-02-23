@@ -6,7 +6,7 @@ This project demonstrates how to use the [CoRIM Verifier (cover)](https://github
 
 The purpose of this demo is to show, using Arm CCA as an example, how attestation evidence can be verified and appraised locally, which means without the use of an external verification service.
 
-In terms of the [RATS architecture (RFC9334)](https://datatracker.ietf.org/doc/rfc9334/) for remote attestation, this demo exemplifies the case where the implementation of the Verifier role is combined directly with the implementation of another role such as the Attester or the Relying Party.
+In terms of the [RATS architecture (RFC9334)](https://datatracker.ietf.org/doc/rfc9334/) for remote attestation, this demo exemplifies the case where the implementation of the Verifier role is combined directly with the implementation of another role, such as the Attester or the Relying Party.
 This is instead of having the Verifier role being implemented in a remote service, where it would be accessed via a call over the network.
 
 When verification is performed locally in this way, the Verifier still needs access to a trusted and up-to-date source of endorsements and reference values from the supply chain.
@@ -53,7 +53,7 @@ The diagram is simplified down to the most essential interactions and data flows
 Because this demo uses CoSERV to retrieve endorsements and reference values, there is a dependency on a CoSERV-capable endorsement service.
 This demo does not run any such service automatically.
 There is an experimental service available at `https://veraison.test.linaro.org:11443`.
-Alternatively, you can create your own deployment of the Veraison services, or use a different CoSERV-compliant service for Arm CCA.
+Alternatively, you can create your own deployment of the Veraison services or use a different CoSERV-compliant service for Arm CCA.
 The service that you want to use should be passed into the tool as a command-line parameter (see instructions below).
 
 ## How to Build
