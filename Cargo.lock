@@ -527,7 +527,7 @@ dependencies = [
 [[package]]
 name = "coserv-rs"
 version = "0.1.0"
-source = "git+https://github.com/veraison/coserv-rs#014257f5c4e5ed8919419a87117ec44fc6e9e879"
+source = "git+https://github.com/veraison/coserv-rs#8725636d9526863abe890e67a18a714a6eda3b45"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3316,7 +3316,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 [[package]]
 name = "veraison-apiclient"
 version = "0.0.2"
-source = "git+https://github.com/veraison/rust-apiclient#88a712421a424fa85730671a233d8cf5f64a36c3"
+source = "git+https://github.com/veraison/rust-apiclient#ff7ce874c1323c7f58374e49ae07bdecf98d8e3d"
 dependencies = [
  "base64 0.22.1",
  "chrono",
