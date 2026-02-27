@@ -14,7 +14,7 @@ name = "ccacoserv-cli"
 path = "src/main.rs"
 
 [dependencies]
-coserv-rs = { git = "https://github.com/veraison/coserv-rs" }
+coserv-rs = { git = "https://github.com/veraison/coserv-rs", features = ["openssl"] }
 corim-rs = { git = "https://github.com/veraison/corim-rs" }
 cover = { git = "https://github.com/veraison/cover" }
 veraison-apiclient = { git = "https://github.com/veraison/rust-apiclient" }
