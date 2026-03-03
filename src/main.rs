@@ -45,6 +45,10 @@ struct Cli {
     #[arg(short, long, default_value_t = false, global = true)]
     force: bool,
 
+    /// The server MUST sign CoSERV results. The command fails if the server does not support signing.
+    #[arg(short = 'm', long, default_value_t = false, global = true)]
+    must_sign: bool,
+
     #[command(flatten)]
     verbosity: Verbosity<InfoLevel>,
 }

@@ -14,7 +14,7 @@ use ccatoken::token::Evidence;
 use crate::{
     Cli,
     error::{Error, Result},
-    query::{reference_value_query_from_evidence, run_query, trust_anchor_query_from_evidence},
+    query::{QueryClient, reference_value_query_from_evidence, trust_anchor_query_from_evidence},
     store::MemCoservStore,
 };
 
@@ -40,21 +40,23 @@ pub async fn verify(args: &Cli) -> Result<()> {
     let ta_query = trust_anchor_query_from_evidence(&evidence)?;
     let rv_query = reference_value_query_from_evidence(&evidence)?;
 
-    let ta_result = run_query(
-        &args.coserv_server,
-        ca_cert_path.as_ref(),
-        &ta_query,
-        false, // request unsigned coserv response
-    )
-    .await?;
+    let client = QueryClient::run_discovery(&args.coserv_server, ca_cert_path.as_ref()).await?;
 
-    let rv_result = run_query(
-        &args.coserv_server,
-        ca_cert_path.as_ref(),
-        &rv_query,
-        false, // request unsigned coserv response
-    )
-    .await?;
+    let ta_result = client
+        .run_query(
+            &ta_query,
+            // Request signed CoSERV results if the user is insisting on them, or if the server supports them
+            args.must_sign | client.supports_signing(),
+        )
+        .await?;
+
+    let rv_result = client
+        .run_query(
+            &rv_query,
+            // Request signed CoSERV results if the user is insisting on them, or if the server supports them
+            args.must_sign | client.supports_signing(),
+        )
+        .await?;
 
     debug!("\nreceived coserv results: {rv_result:?}, {ta_result:?}",);
 
@@ -119,6 +121,7 @@ mod tests {
             output: None,
             ca_cert: None,
             force: true,
+            must_sign: false,
             verbosity: Verbosity::default(),
         };
 
@@ -136,6 +139,7 @@ mod tests {
             output: None,
             ca_cert: None,
             force: true,
+            must_sign: false,
             verbosity: Verbosity::default(),
         };
 

@@ -12,13 +12,18 @@ use corim_rs::{
     UeidType,
 };
 
-use coserv_rs::coserv::{
-    ArtifactTypeChoice, Coserv, CoservBuilder, CoservProfile, CoservQueryBuilder,
-    EnvironmentSelectorMap, ResultTypeChoice, StatefulClass, StatefulClassBuilder,
-    StatefulInstance, StatefulInstanceBuilder,
+use coserv_rs::{
+    coserv::{
+        ArtifactTypeChoice, Coserv, CoservBuilder, CoservProfile, CoservQueryBuilder,
+        EnvironmentSelectorMap, OpensslVerifier, ResultTypeChoice, StatefulClass,
+        StatefulClassBuilder, StatefulInstance, StatefulInstanceBuilder,
+    },
+    discovery::ResultVerificationKey,
 };
 
-use veraison_apiclient::{Discovery, DiscoveryBuilder, coserv::QueryRunnerBuilder};
+use veraison_apiclient::{
+    Discovery, DiscoveryBuilder, coserv::QueryRunner, coserv::QueryRunnerBuilder,
+};
 
 use crate::error::{Error, Result};
 
@@ -86,60 +91,115 @@ pub fn trust_anchor_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coser
     Ok(ta_coserv)
 }
 
-pub async fn run_query<'a>(
-    coserv_service_base_url: &str,
-    ca_cert: Option<&PathBuf>,
-    coserv_query: &Coserv<'a>,
-    request_signed: bool,
-) -> Result<Coserv<'a>> {
-    // cannot support signed coserv response yet
-    if request_signed {
-        return Err(Error::InvalidValue {
-            value: Box::new(request_signed),
-            expected: "request_signed = false",
-        });
-    }
-
-    let coserv_request_response_url = run_discovery(coserv_service_base_url, ca_cert).await?;
-
-    let query_runner = ca_cert
-        .map_or(QueryRunnerBuilder::new(), |c| {
-            QueryRunnerBuilder::new().with_root_certificate(c.clone())
-        })
-        .with_request_response_url(coserv_request_response_url.to_string())
-        .build()?;
-
-    let coserv_result = query_runner.execute_query_unsigned(coserv_query).await?;
-
-    Ok(coserv_result)
+/// Convenient wrapper around the [QueryRunner] that also includes a signature verifier and any
+/// other client-side state that might be needed.
+pub struct QueryClient {
+    query_runner: QueryRunner,
+    verifier: Option<OpensslVerifier>,
 }
 
-pub async fn run_discovery(
-    coserv_service_base_url: &str,
-    ca_cert: Option<&PathBuf>,
-) -> Result<String> {
-    let discoverer = ca_cert
-        .map_or(DiscoveryBuilder::new(), |c| {
-            DiscoveryBuilder::new().with_root_certificate(c.clone())
-        })
-        .with_base_url(coserv_service_base_url.to_string())
-        .build()?;
+impl<'a> QueryClient {
+    pub async fn run_discovery(
+        coserv_service_base_url: &str,
+        ca_cert: Option<&PathBuf>,
+    ) -> Result<QueryClient> {
+        let discoverer = ca_cert
+            .map_or(DiscoveryBuilder::new(), |c| {
+                DiscoveryBuilder::new().with_root_certificate(c.clone())
+            })
+            .with_base_url(coserv_service_base_url.to_string())
+            .build()?;
 
-    let discovery_doc = Discovery::get_coserv_discovery_document_json(&discoverer).await?;
+        let discovery_doc = Discovery::get_coserv_discovery_document_json(&discoverer).await?;
 
-    debug!(
-        "discovered api endpoints: {:?}",
-        discovery_doc.api_endpoints
-    );
+        debug!(
+            "discovered api endpoints: {:?}",
+            discovery_doc.api_endpoints
+        );
 
-    let endpoint = discovery_doc
-        .api_endpoints
-        .get("CoSERVRequestResponse")
-        .ok_or_else(|| Error::custom("missing key CoSERVRequestResponse in discovery document"))?;
+        // Extract the request-response API endpoint
+        let endpoint = discovery_doc
+            .api_endpoints
+            .get("CoSERVRequestResponse")
+            .ok_or_else(|| {
+                Error::custom("missing key CoSERVRequestResponse in discovery document")
+            })?;
 
-    let coserv_request_response_url = format!("{coserv_service_base_url}{endpoint}");
+        let coserv_request_response_url = format!("{coserv_service_base_url}{endpoint}");
 
-    Ok(coserv_request_response_url)
+        let query_runner = ca_cert
+            .map_or(QueryRunnerBuilder::new(), |c| {
+                QueryRunnerBuilder::new().with_root_certificate(c.clone())
+            })
+            .with_request_response_url(coserv_request_response_url)
+            .build()?;
+
+        // Extract the verification key and make an OpenSslVerifier from it
+        let verification_key = discovery_doc.result_verification_key;
+        let verifier: Option<OpensslVerifier> = match verification_key {
+            ResultVerificationKey::Jose(jwk) => {
+                if jwk.is_empty() {
+                    // It is not valid for the server to supply an empty key array
+                    // (Servers that do not support signed results should omit the key array field altogether)
+                    return Err(Error::custom(
+                        "the CoSERV server has returned an empty set of verification keys",
+                    ));
+                } else if jwk.len() > 1 {
+                    // It is valid for the server to return multiple keys.
+                    // However, we can't support this due to https://github.com/veraison/coserv-rs/issues/10
+                    // We want to catch this as a visible error case.
+                    return Err(Error::custom(
+                        "the CoSERV server has returned multiple verification keys, which is valid but not supported",
+                    ));
+                } else {
+                    let jwk_str = &jwk[0].to_string();
+                    debug!("The JWK string for the verification key is {}", jwk_str);
+                    let verifier = OpensslVerifier::from_jwk(jwk_str)
+                        .map_err(|e| Error::Custom(e.to_string()))?;
+                    Some(verifier)
+                }
+            }
+            ResultVerificationKey::Cose(_) => {
+                // We requested the discovery document as JSON, not CBOR, so this case should not be possible
+                return Err(Error::custom(
+                    "verification key should be a JWK in a JSON discovery document",
+                ));
+            }
+            ResultVerificationKey::Undefined => {
+                // This is valid, and means that the server does not support verification
+                debug!("The CoSERV server does not support signed results.");
+                None
+            }
+        };
+
+        let client = QueryClient {
+            query_runner,
+            verifier,
+        };
+
+        Ok(client)
+    }
+
+    pub async fn run_query(&self, query: &Coserv<'a>, request_signed: bool) -> Result<Coserv<'a>> {
+        let result = if request_signed {
+            if let Some(verifier) = &self.verifier {
+                self.query_runner
+                    .execute_query_signed_extracted(query, verifier)
+                    .await?
+            } else {
+                return Err(Error::custom(
+                    "signed CoSERV result was requested, but not supported by the server",
+                ));
+            }
+        } else {
+            self.query_runner.execute_query_unsigned(query).await?
+        };
+        Ok(result)
+    }
+
+    pub fn supports_signing(&self) -> bool {
+        self.verifier.is_some()
+    }
 }
 
 #[cfg(test)]
@@ -182,25 +242,43 @@ mod tests {
     async fn test_run_discovery() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let result = run_discovery(base_url, ca_cert.as_ref()).await.unwrap();
-
-        assert_eq!(
-            result,
-            format!("{base_url}/endorsement-distribution/v1/coserv/{{query}}")
-        );
+        let _client = QueryClient::run_discovery(base_url, ca_cert.as_ref())
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
-    async fn test_run_query_ok() {
+    async fn test_run_query_unsigned_ok() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
+        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref())
+            .await
+            .unwrap();
         let evidence_bytes = include_bytes!("../test/ccatoken.cbor");
         let evidence = Evidence::decode(evidence_bytes.as_slice())
             .expect("failed to decode CCA test evidence");
         let query = trust_anchor_query_from_evidence(&evidence)
             .expect("failed to build the CCA trust anchor query");
 
-        let result = run_query(base_url, ca_cert.as_ref(), &query, false).await;
+        let result = client.run_query(&query, false).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_run_query_signed_ok() {
+        let base_url = "https://veraison.test.linaro.org:11443";
+        let ca_cert = None;
+        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref())
+            .await
+            .unwrap();
+        let evidence_bytes = include_bytes!("../test/ccatoken.cbor");
+        let evidence = Evidence::decode(evidence_bytes.as_slice())
+            .expect("failed to decode CCA test evidence");
+        let query = trust_anchor_query_from_evidence(&evidence)
+            .expect("failed to build the CCA trust anchor query");
+
+        let result = client.run_query(&query, true).await;
 
         assert!(result.is_ok());
     }
