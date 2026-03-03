@@ -33,6 +33,7 @@ pub async fn verify(args: &Cli) -> Result<()> {
     );
 
     let ca_cert_path = args.ca_cert.as_ref().map(PathBuf::from);
+    let cache_path = args.local_cache.as_ref().map(PathBuf::from);
 
     let raw_evidence = fs::read(&args.evidence)?;
     let evidence = Evidence::decode(raw_evidence.as_slice())?;
@@ -40,7 +41,12 @@ pub async fn verify(args: &Cli) -> Result<()> {
     let ta_query = trust_anchor_query_from_evidence(&evidence)?;
     let rv_query = reference_value_query_from_evidence(&evidence)?;
 
-    let client = QueryClient::run_discovery(&args.coserv_server, ca_cert_path.as_ref()).await?;
+    let client = QueryClient::run_discovery(
+        &args.coserv_server,
+        ca_cert_path.as_ref(),
+        cache_path.as_ref(),
+    )
+    .await?;
 
     let ta_result = client
         .run_query(
@@ -122,6 +128,7 @@ mod tests {
             ca_cert: None,
             force: true,
             must_sign: false,
+            local_cache: None,
             verbosity: Verbosity::default(),
         };
 
@@ -140,6 +147,7 @@ mod tests {
             ca_cert: None,
             force: true,
             must_sign: false,
+            local_cache: None,
             verbosity: Verbosity::default(),
         };
 

@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use chrono::DateTime;
 use log::debug;
 
 use ccatoken::token::Evidence;
@@ -16,7 +17,7 @@ use coserv_rs::{
     coserv::{
         ArtifactTypeChoice, Coserv, CoservBuilder, CoservProfile, CoservQueryBuilder,
         EnvironmentSelectorMap, OpensslVerifier, ResultTypeChoice, StatefulClass,
-        StatefulClassBuilder, StatefulInstance, StatefulInstanceBuilder,
+        StatefulClassBuilder, StatefulInstance, StatefulInstanceBuilder, TimeStamp,
     },
     discovery::ResultVerificationKey,
 };
@@ -47,11 +48,17 @@ pub fn reference_value_query_from_evidence<'a>(evidence: &Evidence) -> Result<Co
             .build()?,
     ];
 
-    let rv_query = CoservQueryBuilder::new()
+    let mut rv_query = CoservQueryBuilder::new()
         .artifact_type(ArtifactTypeChoice::ReferenceValues)
         .result_type(ResultTypeChoice::CollectedArtifacts)
         .environment_selector(EnvironmentSelectorMap::Class(classes))
         .build()?;
+
+    // The CoSERV spec has removed the TimeStamp from queries, but the software stack has not caught up with this yet.
+    // For now, fix the timestamp to the Unix Epoch to create the stable encoding that is needed for succcessful caching.
+    // This line of code will necessarily be removed once the `timestamp` field vanishes from `CoservQuery`.
+    // See https://github.com/veraison/coserv-rs/issues/9
+    rv_query.timestamp = TimeStamp(DateTime::UNIX_EPOCH.fixed_offset());
 
     let rv_coserv = CoservBuilder::new()
         .profile(CoservProfile::Uri(
@@ -74,11 +81,17 @@ pub fn trust_anchor_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coser
     ];
 
     // create query map
-    let ta_query = CoservQueryBuilder::new()
+    let mut ta_query = CoservQueryBuilder::new()
         .artifact_type(ArtifactTypeChoice::TrustAnchors)
         .result_type(ResultTypeChoice::CollectedArtifacts)
         .environment_selector(EnvironmentSelectorMap::Instance(instances))
         .build()?;
+
+    // The CoSERV spec has removed the TimeStamp from queries, but the software stack has not caught up with this yet.
+    // For now, fix the timestamp to the Unix Epoch to create the stable encoding that is needed for succcessful caching.
+    // This line of code will necessarily be removed once the `timestamp` field vanishes from `CoservQuery`.
+    // See https://github.com/veraison/coserv-rs/issues/9
+    ta_query.timestamp = TimeStamp(DateTime::UNIX_EPOCH.fixed_offset());
 
     // create coserv map
     let ta_coserv = CoservBuilder::new()
@@ -102,6 +115,7 @@ impl<'a> QueryClient {
     pub async fn run_discovery(
         coserv_service_base_url: &str,
         ca_cert: Option<&PathBuf>,
+        cache_path: Option<&PathBuf>,
     ) -> Result<QueryClient> {
         let discoverer = ca_cert
             .map_or(DiscoveryBuilder::new(), |c| {
@@ -127,12 +141,18 @@ impl<'a> QueryClient {
 
         let coserv_request_response_url = format!("{coserv_service_base_url}{endpoint}");
 
-        let query_runner = ca_cert
-            .map_or(QueryRunnerBuilder::new(), |c| {
-                QueryRunnerBuilder::new().with_root_certificate(c.clone())
-            })
-            .with_request_response_url(coserv_request_response_url)
-            .build()?;
+        let mut builder =
+            QueryRunnerBuilder::new().with_request_response_url(coserv_request_response_url);
+
+        if let Some(some_ca_cert) = ca_cert {
+            builder = builder.with_root_certificate(some_ca_cert.clone());
+        }
+
+        if let Some(some_cache_path) = cache_path {
+            builder = builder.with_default_disk_cache(some_cache_path.clone());
+        }
+
+        let query_runner = builder.build()?;
 
         // Extract the verification key and make an OpenSslVerifier from it
         let verification_key = discovery_doc.result_verification_key;
@@ -242,7 +262,7 @@ mod tests {
     async fn test_run_discovery() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let _client = QueryClient::run_discovery(base_url, ca_cert.as_ref())
+        let _client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None)
             .await
             .unwrap();
     }
@@ -251,7 +271,7 @@ mod tests {
     async fn test_run_query_unsigned_ok() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref())
+        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None)
             .await
             .unwrap();
         let evidence_bytes = include_bytes!("../test/ccatoken.cbor");
@@ -269,7 +289,7 @@ mod tests {
     async fn test_run_query_signed_ok() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref())
+        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None)
             .await
             .unwrap();
         let evidence_bytes = include_bytes!("../test/ccatoken.cbor");

@@ -49,6 +49,11 @@ struct Cli {
     #[arg(short = 'm', long, default_value_t = false, global = true)]
     must_sign: bool,
 
+    /// The path to the directory where local results will be cached. If not specified, no local caching is performed,
+    /// and all CoSERV requests will go to the server.
+    #[arg(short = 'l', long)]
+    local_cache: Option<String>,
+
     #[command(flatten)]
     verbosity: Verbosity<InfoLevel>,
 }
