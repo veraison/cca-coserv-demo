@@ -84,3 +84,22 @@ To see a list of available commands, run:
 ```bash
 ccacoserv-cli --help
 ```
+
+## Local Caching
+
+An important property of the CoSERV design is that results can be cached using standard HTTP caching semantics.
+This means that not all CoSERV queries require a network call to the server, because cached results can be used instead, which improves performance.
+This demo supports the optional use of client-side disk caching.
+The command-line argument `--local-cache` (short form `-l`) can be supplied to the CLI tool along with a suitable directory path on the local disk.
+
+Example usage with disk cache:
+
+```bash
+ccacoserv-cli --evidence test/ccatoken.cbor --coserv-server https://veraison.test.linaro.org:11443 --pretty --local-cache ./coserv-cache
+```
+
+This will cause the folder `coserv-cache` to be created in the current working directory if it doesn't already exist.
+
+Disk caches are persistent across invocations of the CLI tool.
+
+Learn more about CoSERV result caching in the [CoSERV IETF draft](https://www.ietf.org/archive/id/draft-ietf-rats-coserv-05.html#name-caching).
