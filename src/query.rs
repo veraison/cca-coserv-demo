@@ -3,7 +3,6 @@
 
 use std::path::PathBuf;
 
-use chrono::DateTime;
 use log::debug;
 
 use ccatoken::token::Evidence;
@@ -17,7 +16,7 @@ use coserv_rs::{
     coserv::{
         ArtifactTypeChoice, Coserv, CoservBuilder, CoservProfile, CoservQueryBuilder,
         EnvironmentSelectorMap, OpensslVerifier, ResultTypeChoice, StatefulClass,
-        StatefulClassBuilder, StatefulInstance, StatefulInstanceBuilder, TimeStamp,
+        StatefulClassBuilder, StatefulInstance, StatefulInstanceBuilder,
     },
     discovery::ResultVerificationKey,
 };
@@ -48,17 +47,11 @@ pub fn reference_value_query_from_evidence<'a>(evidence: &Evidence) -> Result<Co
             .build()?,
     ];
 
-    let mut rv_query = CoservQueryBuilder::new()
+    let rv_query = CoservQueryBuilder::new()
         .artifact_type(ArtifactTypeChoice::ReferenceValues)
         .result_type(ResultTypeChoice::CollectedArtifacts)
         .environment_selector(EnvironmentSelectorMap::Class(classes))
         .build()?;
-
-    // The CoSERV spec has removed the TimeStamp from queries, but the software stack has not caught up with this yet.
-    // For now, fix the timestamp to the Unix Epoch to create the stable encoding that is needed for succcessful caching.
-    // This line of code will necessarily be removed once the `timestamp` field vanishes from `CoservQuery`.
-    // See https://github.com/veraison/coserv-rs/issues/9
-    rv_query.timestamp = TimeStamp(DateTime::UNIX_EPOCH.fixed_offset());
 
     let rv_coserv = CoservBuilder::new()
         .profile(CoservProfile::Uri(
@@ -81,17 +74,11 @@ pub fn trust_anchor_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coser
     ];
 
     // create query map
-    let mut ta_query = CoservQueryBuilder::new()
+    let ta_query = CoservQueryBuilder::new()
         .artifact_type(ArtifactTypeChoice::TrustAnchors)
         .result_type(ResultTypeChoice::CollectedArtifacts)
         .environment_selector(EnvironmentSelectorMap::Instance(instances))
         .build()?;
-
-    // The CoSERV spec has removed the TimeStamp from queries, but the software stack has not caught up with this yet.
-    // For now, fix the timestamp to the Unix Epoch to create the stable encoding that is needed for succcessful caching.
-    // This line of code will necessarily be removed once the `timestamp` field vanishes from `CoservQuery`.
-    // See https://github.com/veraison/coserv-rs/issues/9
-    ta_query.timestamp = TimeStamp(DateTime::UNIX_EPOCH.fixed_offset());
 
     // create coserv map
     let ta_coserv = CoservBuilder::new()
@@ -235,13 +222,13 @@ mod tests {
             .expect("failed to decode the CCA test evidence");
         let query = reference_value_query_from_evidence(&evidence)
             .expect("failed to build the CCA reference value query");
-        let _b64 = query
+        let b64 = query
             .to_b64_url()
             .expect("failed to convert the CCA reference value query to b64-url string");
-        // TODO(paulhowardarm): In theory, these queries should resolve to stable and predictable b64-URL strings.
-        //                      This doesn't work at the moment, because the data model is ill-advisedly including a timestamp - an error of judgement in the CoSERV spec
-        //                      See: https://github.com/ietf-rats-wg/draft-ietf-rats-coserv/issues/56
-        // assert_eq!(b64, "ogB4I3RhZzphcm0uY29tLDIwMjM6Y2NhX3BsYXRmb3JtIzEuMC4wAaQAAgGhAIGBoQDZAlhYIH9FTEYCAQEAAAAAAAAAAAADAD4AAQAAAFBYAAAAAAAAAsB0MjAyNi0wMS0yOFQxNjoxMjo0OVoDAA");
+        assert_eq!(
+            b64,
+            "ogB4I3RhZzphcm0uY29tLDIwMjM6Y2NhX3BsYXRmb3JtIzEuMC4wAaMAAgGhAIGBoQDZAlhYIH9FTEYCAQEAAAAAAAAAAAADAD4AAQAAAFBYAAAAAAAAAgA"
+        );
     }
 
     #[test]
@@ -251,11 +238,13 @@ mod tests {
             .expect("failed to decode the CCA test evidence");
         let query = trust_anchor_query_from_evidence(&evidence)
             .expect("failed to build the CCA trust anchor query");
-        let _b64 = query
+        let b64 = query
             .to_b64_url()
             .expect("failed to convert the CCA trust anchor query to b64-url string");
-        // TODO(paulhowardarm): See comment above
-        // assert_eq!(b64, "ogB4I3RhZzphcm0uY29tLDIwMjM6Y2NhX3BsYXRmb3JtIzEuMC4wAaQAAgGhAIGBoQDZAlhYIH9FTEYCAQEAAAAAAAAAAAADAD4AAQAAAFBYAAAAAAAAAsB0MjAyNi0wMS0yOFQxNjoxMjo0OVoDAA");
+        assert_eq!(
+            b64,
+            "ogB4I3RhZzphcm0uY29tLDIwMjM6Y2NhX3BsYXRmb3JtIzEuMC4wAaMAAQGhAYGB2QImWCEBBwYFBAMCAQAPDg0MCwoJCBcWFRQTEhEQHx4dHBsaGRgCAA"
+        );
     }
 
     #[tokio::test]
