@@ -45,6 +45,7 @@ pub async fn verify(args: &Cli) -> Result<()> {
         &args.coserv_server,
         ca_cert_path.as_ref(),
         cache_path.as_ref(),
+        args.no_check_certificate,
     )
     .await?;
 
@@ -126,6 +127,7 @@ mod tests {
             pretty: false,
             output: None,
             ca_cert: None,
+            no_check_certificate: false,
             force: true,
             must_sign: false,
             local_cache: None,
@@ -145,6 +147,7 @@ mod tests {
             pretty: false,
             output: None,
             ca_cert: None,
+            no_check_certificate: false,
             force: true,
             must_sign: false,
             local_cache: None,

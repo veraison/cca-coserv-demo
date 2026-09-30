@@ -13,7 +13,7 @@ use corim_rs::{
 
 use coserv_rs::{
     coserv::{
-        ArtifactTypeChoice, Coserv, CoservBuilder, CoservProfile, CoservQueryBuilder,
+        ArtifactTypeChoice, Coserv, CoservBuilder, CoservEnvQueryBuilder, CoservProfile,
         EnvironmentSelectorMap, OpensslVerifier, ResultTypeChoice, StatefulClass,
         StatefulClassBuilder, StatefulInstance, StatefulInstanceBuilder,
     },
@@ -31,7 +31,7 @@ use crate::error::{Error, Result};
 /// Creates and returns a CoSERV query to obtain the reference values that would be needed to appraise the given CCA evidence
 pub fn reference_value_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coserv<'a>> {
     let id = ClassIdTypeChoice::Bytes(TaggedBytes::new(
-        evidence.platform_claims.impl_id.as_slice().into(),
+        evidence.platform_claims.impl_id().as_slice().into(),
     ));
     let cca_fvp_class_map = ClassMapBuilder::new().class_id(id).build()?;
 
@@ -41,7 +41,7 @@ pub fn reference_value_query_from_evidence<'a>(evidence: &Evidence) -> Result<Co
             .build()?,
     ];
 
-    let rv_query = CoservQueryBuilder::new()
+    let rv_query = CoservEnvQueryBuilder::new()
         .artifact_type(ArtifactTypeChoice::ReferenceValues)
         .result_type(ResultTypeChoice::CollectedArtifacts)
         .environment_selector(EnvironmentSelectorMap::Class(classes))
@@ -51,7 +51,7 @@ pub fn reference_value_query_from_evidence<'a>(evidence: &Evidence) -> Result<Co
         .profile(CoservProfile::Uri(
             "tag:arm.com,2025:cca_platform#1.0.0".into(),
         ))
-        .query(rv_query)
+        .query(rv_query.into())
         .build()?;
 
     Ok(rv_coserv)
@@ -59,7 +59,7 @@ pub fn reference_value_query_from_evidence<'a>(evidence: &Evidence) -> Result<Co
 
 /// Creates and returns a CoSERV query to obtain the trust anchor(s) that would be needed to verify the given CCA evidence
 pub fn trust_anchor_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coserv<'a>> {
-    let ueid = UeidType::new(evidence.platform_claims.inst_id.as_slice().into());
+    let ueid = UeidType::new(evidence.platform_claims.inst_id().as_slice().into());
     let cca_fvp_instance_id = InstanceIdTypeChoice::Ueid(TaggedUeidType::new(ueid));
     let instances: Vec<StatefulInstance> = vec![
         StatefulInstanceBuilder::new()
@@ -68,7 +68,7 @@ pub fn trust_anchor_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coser
     ];
 
     // create query map
-    let ta_query = CoservQueryBuilder::new()
+    let ta_query = CoservEnvQueryBuilder::new()
         .artifact_type(ArtifactTypeChoice::TrustAnchors)
         .result_type(ResultTypeChoice::CollectedArtifacts)
         .environment_selector(EnvironmentSelectorMap::Instance(instances))
@@ -79,7 +79,7 @@ pub fn trust_anchor_query_from_evidence<'a>(evidence: &Evidence) -> Result<Coser
         .profile(CoservProfile::Uri(
             "tag:arm.com,2025:cca_platform#1.0.0".into(),
         ))
-        .query(ta_query)
+        .query(ta_query.into())
         .build()?;
 
     Ok(ta_coserv)
@@ -97,11 +97,14 @@ impl<'a> QueryClient {
         coserv_service_base_url: &str,
         ca_cert: Option<&PathBuf>,
         cache_path: Option<&PathBuf>,
+        no_check_certificate: bool,
     ) -> Result<QueryClient> {
         let mut discovery_builder =
             DiscoveryBuilder::new().with_base_url(coserv_service_base_url.to_string());
 
-        if let Some(ca_cert) = ca_cert {
+        if no_check_certificate {
+            discovery_builder = discovery_builder.no_check_certificate();
+        } else if let Some(ca_cert) = ca_cert {
             discovery_builder = discovery_builder.with_root_certificate(ca_cert.clone());
         }
 
@@ -131,7 +134,9 @@ impl<'a> QueryClient {
         let mut builder =
             QueryRunnerBuilder::new().with_request_response_url(coserv_request_response_url);
 
-        if let Some(ca_cert) = ca_cert {
+        if no_check_certificate {
+            builder = builder.no_check_certificate();
+        } else if let Some(ca_cert) = ca_cert {
             builder = builder.with_root_certificate(ca_cert.clone());
         }
 
@@ -251,7 +256,7 @@ mod tests {
     async fn test_run_discovery() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let _client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None)
+        let _client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None, false)
             .await
             .unwrap();
     }
@@ -260,7 +265,7 @@ mod tests {
     async fn test_run_query_unsigned_ok() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None)
+        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None, false)
             .await
             .unwrap();
         let evidence_bytes = include_bytes!("../test/ccatoken.cbor");
@@ -278,7 +283,7 @@ mod tests {
     async fn test_run_query_signed_ok() {
         let base_url = "https://veraison.test.linaro.org:11443";
         let ca_cert = None;
-        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None)
+        let client = QueryClient::run_discovery(base_url, ca_cert.as_ref(), None, false)
             .await
             .unwrap();
         let evidence_bytes = include_bytes!("../test/ccatoken.cbor");

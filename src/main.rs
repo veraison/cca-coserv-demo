@@ -32,6 +32,10 @@ struct Cli {
     #[arg(short = 't', long)]
     ca_cert: Option<String>,
 
+    /// Do not validate the CoSERV service certificate.
+    #[arg(long, default_value_t = false)]
+    no_check_certificate: bool,
+
     /// The path into which the command output will be written. If not specified, it will be
     /// generated based on the name of the evidence file.
     #[arg(short, long)]
