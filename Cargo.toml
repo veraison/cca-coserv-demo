@@ -30,3 +30,8 @@ clap = "4.5.57"
 clap-verbosity-flag = "3.0.4"
 env_logger = "0.11.8"
 chrono = "0.4.42"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+multiple_crate_versions = "allow"
