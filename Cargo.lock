@@ -372,7 +372,7 @@ name = "ccacoserv"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "ccatoken 0.1.0 (git+https://github.com/veraison/rust-ccatoken?rev=c2257a351f792cb64a8d230b4caa6256fd8118ed)",
+ "ccatoken",
  "chrono",
  "clap",
  "clap-verbosity-flag",
@@ -392,28 +392,6 @@ dependencies = [
 [[package]]
 name = "ccatoken"
 version = "0.1.0"
-source = "git+https://github.com/veraison/rust-ccatoken?rev=c2257a351f792cb64a8d230b4caa6256fd8118ed#c2257a351f792cb64a8d230b4caa6256fd8118ed"
-dependencies = [
- "base64 0.21.7",
- "bitflags 2.13.2",
- "ciborium",
- "clap",
- "cose-rust",
- "ear 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hex",
- "hex-literal 0.4.1",
- "jsonwebtoken 11.1.0",
- "multimap 0.9.1",
- "openssl",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "ccatoken"
-version = "0.1.0"
 source = "git+https://github.com/veraison/rust-ccatoken?rev=ce0b02b#ce0b02b3714cca7d86b2005470b6751d0d0dc69f"
 dependencies = [
  "base64 0.23.1",
@@ -423,9 +401,9 @@ dependencies = [
  "cose-rust",
  "ear 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
- "hex-literal 1.1.0",
+ "hex-literal",
  "jsonwebtoken 11.1.0",
- "multimap 0.10.1",
+ "multimap",
  "openssl",
  "serde",
  "serde_json",
@@ -750,7 +728,7 @@ source = "git+https://github.com/veraison/cover#d192cd66a1abf51722408fc968f618a7
 dependencies = [
  "anyhow",
  "base64 0.23.1",
- "ccatoken 0.1.0 (git+https://github.com/veraison/rust-ccatoken?rev=ce0b02b)",
+ "ccatoken",
  "chrono",
  "ciborium",
  "clap",
@@ -1528,12 +1506,6 @@ dependencies = [
 
 [[package]]
 name = "hex-literal"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
-
-[[package]]
-name = "hex-literal"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
@@ -2305,15 +2277,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29e871a9861f3664f18b7e04e9301d4edd55090c2dadb4b1c602e26ab32b1f5b"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "multimap"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1a5d38b9b352dbd913288736af36af41c48d61b1a8cd34bcecd727561b7d511"
-dependencies = [
- "serde",
 ]
 
 [[package]]
