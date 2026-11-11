@@ -1,9 +1,8 @@
 // Copyright 2022-2026 Contributors to the Veraison project.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{borrow::Cow, vec::IntoIter};
+use std::vec::IntoIter;
 
-use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD};
 use corim_rs::{Corim, ProfileTypeChoice};
 
 use coserv_rs::coserv::{Coserv, CoservProfile, ResultSetTypeChoice};
@@ -29,12 +28,6 @@ impl<'a> CoservParseResult<'a> {
             ev_list: vec![],
             key_list: vec![],
         }
-    }
-
-    pub fn extend(&mut self, other: CoservParseResult<'a>) {
-        self.rv_list.extend(other.rv_list);
-        self.ev_list.extend(other.ev_list);
-        self.key_list.extend(other.key_list);
     }
 
     pub fn append(&mut self, other: &mut CoservParseResult<'a>) {
@@ -65,21 +58,8 @@ impl<'a> CoservParseResult<'a> {
                 for ta_quad in ta.ak_quads.clone() {
                     let akt = ta_quad.triple;
                     let authority = ta_quad.authorities;
-                    let mut relation =
+                    let relation =
                         KeyRelation::from_attest_key_triple_record(&akt, profile, &authority)?;
-                    // CoSERV supplies PEM text, while CoVer's CCA scheme expects
-                    // base64-encoded PEM in PkixBase64Key. Adapt only the keys
-                    // handed to CoVer, preserving already encoded keys.
-                    if let Some(keys) = &mut relation.condition.key_list {
-                        for key in keys {
-                            if let corim_rs::CryptoKeyTypeChoice::PkixBase64Key(pem) = key
-                                && pem.starts_with("-----BEGIN PUBLIC KEY-----")
-                            {
-                                *pem = Cow::<str>::Owned(STANDARD_NO_PAD.encode(pem.as_bytes()))
-                                    .into();
-                            }
-                        }
-                    }
                     self.key_list.push(relation);
                     updated = true;
                 }
@@ -179,11 +159,8 @@ pub fn parse_coserv<'a, 'b>(coserv: &Coserv<'a>) -> Result<CoservParseResult<'b>
 
 #[cfg(test)]
 mod tests {
-    use std::{borrow::Cow, collections::HashMap};
+    use std::collections::HashMap;
 
-    use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD};
-    use corim_rs::CryptoKeyTypeChoice;
-    use coserv_rs::coserv::{Coserv, ResultSetTypeChoice};
     use cover::{CcaScheme, Scheme, Verifier};
 
     use crate::store::MemCoservStore;
@@ -220,35 +197,11 @@ mod tests {
 
     #[test]
     fn test_cover_verify() {
-        assert_cover_verify(include_bytes!("../test/coserv_ta_result.cbor"));
-    }
-
-    #[test]
-    fn test_cover_verify_already_encoded_trust_anchor() {
-        let mut coserv =
-            Coserv::from_cbor(include_bytes!("../test/coserv_ta_result.cbor").as_slice())
-                .expect("failed to parse trust anchor fixture");
-        let Some(ResultSetTypeChoice::TrustAnchors(anchors)) = coserv
-            .results
-            .as_mut()
-            .and_then(|results| results.result_set.as_mut())
-        else {
-            panic!("fixture does not contain trust anchors");
-        };
-        let CryptoKeyTypeChoice::PkixBase64Key(key) = &mut anchors.ak_quads[0].triple.key_list[0]
-        else {
-            panic!("fixture does not contain a PKIX key");
-        };
-        *key = Cow::<str>::Owned(STANDARD_NO_PAD.encode(key.as_bytes())).into();
-
-        assert_cover_verify(&coserv.to_cbor().expect("failed to encode trust anchors"));
-    }
-
-    fn assert_cover_verify(ta_coserv_bytes: &[u8]) {
         let mut store = MemCoservStore::new();
 
         let evidence_bytes = include_bytes!("../test/ccatoken.cbor");
         let rv_coserv_bytes = include_bytes!("../test/coserv_rv_result.cbor");
+        let ta_coserv_bytes = include_bytes!("../test/coserv_ta_result.cbor");
 
         store
             .add_coserv_cbor_bytes(rv_coserv_bytes)

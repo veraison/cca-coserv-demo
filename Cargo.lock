@@ -650,8 +650,8 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "corim-rs"
-version = "0.3.0"
-source = "git+https://github.com/veraison/corim-rs#d5a5b45d86033d1db4659666cf7d6a49794538ef"
+version = "0.3.1"
+source = "git+https://github.com/veraison/corim-rs#bbde49fa4cc02afeacd8856816f3c5c3ed19b277"
 dependencies = [
  "base64 0.23.1",
  "ciborium",
@@ -724,7 +724,7 @@ dependencies = [
 [[package]]
 name = "cover"
 version = "0.0.1"
-source = "git+https://github.com/veraison/cover#d192cd66a1abf51722408fc968f618a7cb816765"
+source = "git+https://github.com/veraison/cover#5444932c4da212135792d8b5b9aec3fa82e3cbd8"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -3859,7 +3859,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
