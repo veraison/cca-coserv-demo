@@ -6,13 +6,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    // -- validation --
-    #[error("invalid value: {value:?}, expected {expected}")]
-    InvalidValue {
-        value: Box<dyn std::fmt::Debug + Send + Sync>,
-        expected: &'static str,
-    },
-
     // -- external --
     #[error(transparent)]
     Io(#[from] std::io::Error),

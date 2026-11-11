@@ -6,8 +6,9 @@ use std::vec::IntoIter;
 use corim_rs::{Corim, ProfileTypeChoice};
 
 use coserv_rs::coserv::{Coserv, CoservProfile, ResultSetTypeChoice};
+use cover::corim::KeyRelation;
 use cover::result::{Error, Result};
-use cover::{CorimStore, EvRelation, EvsRelation, RvRelation};
+use cover::{CorimStore, EvRelation, RvRelation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -16,8 +17,8 @@ pub struct CoservParseResult<'a> {
     pub rv_list: Vec<RvRelation<'a>>,
     #[serde(rename = "ev-list")]
     pub ev_list: Vec<EvRelation<'a>>,
-    #[serde(rename = "evs-list")]
-    pub evs_list: Vec<EvsRelation<'a>>,
+    #[serde(rename = "key-list")]
+    pub key_list: Vec<KeyRelation<'a>>,
 }
 
 impl<'a> CoservParseResult<'a> {
@@ -25,20 +26,14 @@ impl<'a> CoservParseResult<'a> {
         CoservParseResult {
             rv_list: vec![],
             ev_list: vec![],
-            evs_list: vec![],
+            key_list: vec![],
         }
-    }
-
-    pub fn extend(&mut self, other: CoservParseResult<'a>) {
-        self.rv_list.extend(other.rv_list);
-        self.ev_list.extend(other.ev_list);
-        self.evs_list.extend(other.evs_list);
     }
 
     pub fn append(&mut self, other: &mut CoservParseResult<'a>) {
         self.rv_list.append(other.rv_list.as_mut());
         self.ev_list.append(other.ev_list.as_mut());
-        self.evs_list.append(other.evs_list.as_mut());
+        self.key_list.append(other.key_list.as_mut());
     }
 
     pub fn update_from_coserv_result<'b>(
@@ -63,9 +58,9 @@ impl<'a> CoservParseResult<'a> {
                 for ta_quad in ta.ak_quads.clone() {
                     let akt = ta_quad.triple;
                     let authority = ta_quad.authorities;
-                    self.ev_list.push(EvRelation::from_attest_key_triple_record(
-                        &akt, profile, &authority,
-                    )?);
+                    let relation =
+                        KeyRelation::from_attest_key_triple_record(&akt, profile, &authority)?;
+                    self.key_list.push(relation);
                     updated = true;
                 }
             }
@@ -107,7 +102,7 @@ impl MemCoservStore<'_> {
 impl<'a> CorimStore<'a> for MemCoservStore<'a> {
     type RvIter = IntoIter<RvRelation<'a>>;
     type EvIter = IntoIter<EvRelation<'a>>;
-    type EvsIter = IntoIter<EvsRelation<'a>>;
+    type KeyIter = IntoIter<KeyRelation<'a>>;
 
     #[allow(clippy::needless_lifetimes)]
     fn add<'b>(&mut self, _corim: &Corim<'b>) -> Result<()> {
@@ -124,8 +119,8 @@ impl<'a> CorimStore<'a> for MemCoservStore<'a> {
         self.items.ev_list.clone().into_iter()
     }
 
-    fn iter_evs(&self) -> Self::EvsIter {
-        self.items.evs_list.clone().into_iter()
+    fn iter_keys(&self) -> Self::KeyIter {
+        self.items.key_list.clone().into_iter()
     }
 }
 
@@ -181,10 +176,10 @@ mod tests {
             .add_coserv_cbor_bytes(rv_coserv_bytes)
             .expect("failed to add CCA reference value CoSERV results into the store");
 
-        // The test data provides 1 reference value triple, but we shouldn't have any endorsed values yet
+        // The test data provides 1 reference value triple, but no endorsed values or keys yet
         assert_eq!(store.items.rv_list.len(), 1);
         assert_eq!(store.items.ev_list.len(), 0);
-        assert_eq!(store.items.evs_list.len(), 0);
+        assert_eq!(store.items.key_list.len(), 0);
 
         // There should be 14 measurement maps in the RV triple
         let rvs = store.items.rv_list.first().unwrap().clone();
@@ -194,10 +189,10 @@ mod tests {
             .add_coserv_cbor_bytes(ta_coserv_bytes)
             .expect("failed to add CCA trust anchor CoSERV results into the store");
 
-        // The test data provides 1 endorsed values - so we should have that, plus the 1 reference value still
+        // The trust anchor adds 1 key relation alongside the existing reference value
         assert_eq!(store.items.rv_list.len(), 1);
-        assert_eq!(store.items.ev_list.len(), 1);
-        assert_eq!(store.items.evs_list.len(), 0);
+        assert_eq!(store.items.ev_list.len(), 0);
+        assert_eq!(store.items.key_list.len(), 1);
     }
 
     #[test]
